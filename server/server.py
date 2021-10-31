@@ -8,9 +8,9 @@ import sys
 
 mu_OU = Lock()
 ONLINE_USERS = dict()
-# name = socket.gethostname()
-# socket.gethostbyname(name)
-HOST_SND = "127.0.1.1"
+name = socket.gethostname()
+
+HOST_SND = socket.gethostbyname(name) #use '127.0.1.1' 
 print(HOST_SND)
 
 
@@ -47,7 +47,7 @@ signal.signal(signal.SIGINT, signal_handler)
 
 
 def clientThread(conn, addr):
-    global READER_WRITER
+    global READER_WRITER,ONLINE_USERS
     with conn:
         print('Connected by', addr)
         while True:
@@ -67,10 +67,10 @@ def clientThread(conn, addr):
                 print(ONLINE_USERS)
                 print(addr[0])
                 for key in ONLINE_USERS:
-                    # if ONLINE_USERS[key]==addr[0]:#use addr[0] here when it is locally available but in localhost it wont work
-                    del_addr = ONLINE_USERS.pop(key)
-                    print(ONLINE_USERS)
-                    break
+                    if ONLINE_USERS[key]==addr[0]:#use addr[0] here when it is locally available but in localhost it wont work
+                        del_addr = ONLINE_USERS.pop(key)
+                        print(ONLINE_USERS)
+                        break
                 print(del_addr)
                 with socket.socket() as message_socket:
                     message_socket.connect((del_addr,PORT_MSG))
@@ -215,7 +215,7 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             if command[0] == "CONNECT":
                 if command[1] not in ONLINE_USERS:
                     mu_OU.acquire()
-                    ONLINE_USERS[command[1]] = "127.0.0."+ str(len(ONLINE_USERS)+1)
+                    ONLINE_USERS[command[1]] = addr[0]#adding staticaly when using localhost code: .. = "127.0.0."+ str(len(ONLINE_USERS)+1)
                     print(ONLINE_USERS[command[1]])
                     mu_OU.release()
                     conn.sendall(b"OK\n")

@@ -5,8 +5,8 @@ from threading import Lock,Semaphore,Thread
 HOST = ''          # The server's hostname or IP address
 PORT = 2021        # The port used by the server
 
-# name = socket.gethostname()
-HOST_MSG = "127.0.0.1"#socket.gethostbyname(name)   #if you dont specify address it will took localhost
+name = socket.gethostname()
+HOST_MSG = socket.gethostbyname(name)#"127.0.0.1"   #if you dont specify address it will took localhost
 PORT_MSG = 2022       # for client to listen to messages from server
 print(HOST_MSG)
 mu_print = Lock()
@@ -47,7 +47,7 @@ def protocolMessage(data:str):
             message = f"MESSAGE {command[1]}"
         elif action == "append":
             message = f"{action.upper()} {command[-1]}"
-        elif action == "appendfile":#TODO
+        elif action == "appendfile":
             if not os.path.exists(command[1]):
                 print("file doesn't exists,",command[1])
                 return "",[]
@@ -140,7 +140,9 @@ def sending_thread(s:socket.socket):
             s.sendall(f"{size} {text}".encode('ascii'))
         elif command[0] == "lu":
             users = recieving_untill_special_char('\n',s)
+            mu_print.acquire()
             print(users)
+            mu_print.release()
         elif command[0] == "read":
             filename = command[1]
             size_str = recieving_untill_special_char(' ',s)
@@ -158,7 +160,9 @@ def sending_thread(s:socket.socket):
                 f.write(s.recv(int(size_str)).decode())
         elif command[0] == "lf":
             files = recieving_untill_special_char('\n',s)
+            mu_print.acquire()
             print(files)
+            mu_print.release()
         elif command[0] == "overwrite":
             filename = command[1]
             size = os.path.getsize(filename)
@@ -173,7 +177,7 @@ def sending_thread(s:socket.socket):
                 size = os.path.getsize(filename)
                 with open(filename,"r") as f:
                     s.sendall(f"{size} {f.read()}".encode('ascii'))
-def recieving_thread(s:socket.socket):
+def recieving_thread(s:socket.socket):#recieving message after command ends
     global DISCONNECT
     s.bind((HOST_MSG, PORT_MSG))
     s.listen()
