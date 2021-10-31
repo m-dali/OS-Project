@@ -9,7 +9,7 @@ PORT = 2021        # The port used by the server
 HOST_MSG = "127.0.0.1"#socket.gethostbyname(name)   #if you dont specify address it will took localhost
 PORT_MSG = 2022       # for client to listen to messages from server
 print(HOST_MSG)
-mu = Lock()
+mu_print = Lock()
 DISCONNECT_S = Semaphore(1)
 DISCONNECT = False
 QUIT = False
@@ -87,7 +87,7 @@ def sending_thread(s:socket.socket):
             HOST = ''
             DISCONNECT = False
         DISCONNECT_S.release()
-        mu.acquire()
+        mu_print.acquire()
         data = input(">")
         if data == 'quit':
             data = 'disconnect'
@@ -96,7 +96,7 @@ def sending_thread(s:socket.socket):
             DISCONNECT_S.acquire()
         message,command = protocolMessage(data)
         if message == "":
-            mu.release()
+            mu_print.release()
             continue
         if command[0]=="connect":
             if not isUserConnected:
@@ -106,21 +106,21 @@ def sending_thread(s:socket.socket):
                 except socket.error as e:
                     print(e)
                     s.close()
-                    mu.release()
+                    mu_print.release()
                     break
             else:
                 print("you already connected, disconnect first",command[1])
-                mu.release()
+                mu_print.release()
                 continue
         else:
             if not isUserConnected :
                 print("try to connect first")
-                mu.release()
+                mu_print.release()
                 continue
-        s.sendall(message.encode())
+        s.sendall(message.encode('ascii'))
         response_code = recieving_untill_special_char('\n',s)
         print(f"Response Code: {response_code}")
-        mu.release()
+        mu_print.release()
         if response_code == "ERROR" and command[0] == "connect":
             isUserConnected = False
             s.close()
@@ -137,7 +137,7 @@ def sending_thread(s:socket.socket):
         if command[0] == "send":
             text = " ".join(command[2:]).replace('"','')
             size = len(text)
-            s.sendall(f"{size} {text}".encode())
+            s.sendall(f"{size} {text}".encode('ascii'))
         elif command[0] == "lu":
             users = recieving_untill_special_char('\n',s)
             print(users)
@@ -150,7 +150,7 @@ def sending_thread(s:socket.socket):
             filename = command[1]
             size = os.path.getsize(filename)
             with open(filename, 'r') as f:
-                s.sendall((f"{size} {f.read()}").encode())                   
+                s.sendall((f"{size} {f.read()}").encode('ascii'))                   
         elif command[0] == "overread":
             filename = command[1]
             size_str = recieving_untill_special_char(' ',s)
@@ -163,16 +163,16 @@ def sending_thread(s:socket.socket):
             filename = command[1]
             size = os.path.getsize(filename)
             with open(filename, 'r') as f:
-                s.sendall((f"{size} {f.read()}").encode())
+                s.sendall((f"{size} {f.read()}").encode('ascii'))
         elif command[0] == "append":
             text = " ".join(command[1:-1]).replace('"','')
             size = len(text)
-            s.sendall(f"{size} {text}".encode())
+            s.sendall(f"{size} {text}".encode('ascii'))
         elif command[0] == "appendfile":
                 filename = command[1]
                 size = os.path.getsize(filename)
                 with open(filename,"r") as f:
-                    s.sendall(f"{size} {f.read()}".encode())
+                    s.sendall(f"{size} {f.read()}".encode('ascii'))
 def recieving_thread(s:socket.socket):
     global DISCONNECT
     s.bind((HOST_MSG, PORT_MSG))
@@ -184,9 +184,9 @@ def recieving_thread(s:socket.socket):
             if command == "MESSAGE":
                 size_of_msg = recieving_untill_special_char(' ',conn)
                 msg = conn.recv(int(size_of_msg)).decode()
-                mu.acquire()
+                mu_print.acquire()
                 print(f"[RECIEVED MESSAGE]: {msg}")
-                mu.release()
+                mu_print.release()
             elif command == "DISCONNECT":
                 DISCONNECT = True
                 DISCONNECT_S.release()

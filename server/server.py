@@ -6,21 +6,23 @@ import time
 import signal
 import sys
 
-
+mu_OU = Lock()
 ONLINE_USERS = dict()
 # name = socket.gethostname()
-#socket.gethostbyname(name)
+# socket.gethostbyname(name)
 HOST_SND = "127.0.1.1"
+print(HOST_SND)
 
 
-mu_RW = Lock() #mutex for RW
+mu_RW = Lock()          # mutex for RW
 READER_WRITER = dict()  # Readerwriter[filename] = RW
 
 
 
 PORT_SND = 2021        # PORT_SND to listen on (non-privileged ports are > 1023)
 PORT_MSG = 2022
-print(HOST_SND)
+
+
 def recieving_untill_special_char(special_char:str,s:socket.socket)->str:
     full_string= ""
     while True:
@@ -30,6 +32,7 @@ def recieving_untill_special_char(special_char:str,s:socket.socket)->str:
         full_string+=char
     return full_string
 
+
 class RW:
   def __init__(self, readcount, mu,write_mu):
     self.readcount = readcount
@@ -37,16 +40,20 @@ class RW:
     self.write_mu = write_mu
 
 
+def signal_handler(sig, frame):
+    print('You pressed Ctrl+C!')
+    sys.exit(0)
+signal.signal(signal.SIGINT, signal_handler)
+
+
 def clientThread(conn, addr):
-    global UPDATING_FILES  
-    # global readcount,writecount,write_mu
+    global READER_WRITER
     with conn:
         print('Connected by', addr)
         while True:
             message = recieving_untill_special_char('\n',conn)
             print(message)
             command = message.split()
-            
             if command[0] == "LF":
                 conn.sendall(b"OK\n")
                 files = ""
@@ -64,7 +71,7 @@ def clientThread(conn, addr):
                     del_addr = ONLINE_USERS.pop(key)
                     print(ONLINE_USERS)
                     break
-                print(del_addr)#unbound local variable
+                print(del_addr)
                 with socket.socket() as message_socket:
                     message_socket.connect((del_addr,PORT_MSG))
                     message_socket.sendall("DISCONNECT\n".encode())
@@ -195,15 +202,10 @@ def clientThread(conn, addr):
                     conn.sendall(b"ERROR\n")
                 rw.write_mu.release()
                 
-def signal_handler(sig, frame):
-    print('You pressed Ctrl+C!')
-    sys.exit(0)
-signal.signal(signal.SIGINT, signal_handler)
-with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
 
+with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
     s.setsockopt( socket.SOL_SOCKET, socket.SO_REUSEADDR, 1 )
     s.bind((HOST_SND, PORT_SND))
-
     while True:
         s.listen(1)
         conn, addr = s.accept()
@@ -212,11 +214,10 @@ with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
         while True:
             if command[0] == "CONNECT":
                 if command[1] not in ONLINE_USERS:
-                    # mu.acquire()
+                    mu_OU.acquire()
                     ONLINE_USERS[command[1]] = "127.0.0."+ str(len(ONLINE_USERS)+1)
-                    # mu.release()
-                    
                     print(ONLINE_USERS[command[1]])
+                    mu_OU.release()
                     conn.sendall(b"OK\n")
                     break
                 else:
